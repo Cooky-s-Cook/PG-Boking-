@@ -14,10 +14,10 @@ const RoomCard: React.FC<RoomCardProps> = ({ room }) => {
   const isAvailable = room.availability === 'Available';
 
   return (
-    <Card className="card-hover overflow-hidden">
-      <div className="relative h-48 w-full overflow-hidden">
+    <Card className="card-hover overflow-hidden transition-all duration-300 hover:shadow-lg">
+      <div className="relative h-60 w-full overflow-hidden">
         <img
-          src={room.image || "https://images.unsplash.com/photo-1649972904349-6e44c42644a7"}
+          src={room.image}
           alt={`Room ${room.roomNumber}`}
           className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
         />
@@ -39,9 +39,24 @@ const RoomCard: React.FC<RoomCardProps> = ({ room }) => {
         </div>
       </CardHeader>
       <CardContent className="pt-2">
-        <p className="text-sm text-muted-foreground truncate">
+        <p className="text-sm text-muted-foreground line-clamp-2 h-10">
           {room.description || `A comfortable ${room.type.toLowerCase()} room with basic amenities.`}
         </p>
+        <div className="mt-2 mb-1">
+          <p className="text-xs text-muted-foreground">Features:</p>
+          <div className="flex flex-wrap gap-1 my-1">
+            {room.features && room.features.slice(0, 3).map((feature, idx) => (
+              <Badge key={idx} variant="secondary" className="text-xs">
+                {feature}
+              </Badge>
+            ))}
+            {room.features && room.features.length > 3 && (
+              <Badge variant="outline" className="text-xs">
+                +{room.features.length - 3} more
+              </Badge>
+            )}
+          </div>
+        </div>
         <p className="mt-2 text-lg font-bold text-pg-primary">
           ₹{room.pricePerMonth.toLocaleString()}<span className="text-sm font-normal text-muted-foreground">/month</span>
         </p>

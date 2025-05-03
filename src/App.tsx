@@ -24,8 +24,21 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   useEffect(() => {
-    // Initialize room data when app starts
-    initializeRoomData();
+    // Force reinitialize room data to update with new images
+    const updateRoomData = async () => {
+      // First, check if we already have rooms in the database
+      const { data: existingRooms } = await supabase.from("rooms").select("id").limit(1);
+      
+      // If rooms exist, delete them all to force reinitialization with new images
+      if (existingRooms && existingRooms.length > 0) {
+        await supabase.from("rooms").delete().neq("id", "0"); // Delete all rooms
+      }
+      
+      // Now initialize room data with new images
+      await initializeRoomData();
+    };
+    
+    updateRoomData();
   }, []);
 
   return (
