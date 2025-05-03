@@ -26,31 +26,36 @@ import { z } from "zod";
 import { User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-const loginSchema = z.object({
+const signupSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  confirmPassword: z.string().min(6, { message: "Confirm password must be at least 6 characters" })
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type SignupFormData = z.infer<typeof signupSchema>;
 
-const Login = () => {
+const Signup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   
-  const form = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
     defaultValues: {
       email: "",
       password: "",
+      confirmPassword: ""
     },
   });
 
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
       });
@@ -60,16 +65,16 @@ const Login = () => {
       }
       
       toast({
-        title: "Login Successful",
-        description: "You have successfully logged in!",
+        title: "Account created successfully",
+        description: "Please check your email for verification instructions.",
       });
       
-      // Navigate to the home page after successful login
-      navigate("/");
+      // Navigate to the login page after successful signup
+      navigate("/login");
     } catch (error: any) {
       toast({
-        title: "Login Failed",
-        description: "Please check your credentials and try again.",
+        title: "Signup Failed",
+        description: error?.message || "Please check your credentials and try again.",
         variant: "destructive",
       });
     } finally {
@@ -87,9 +92,9 @@ const Login = () => {
                 <User className="h-6 w-6 text-pg-primary" />
               </div>
             </div>
-            <CardTitle className="text-2xl">User Login</CardTitle>
+            <CardTitle className="text-2xl">Create an Account</CardTitle>
             <CardDescription>
-              Enter your email and password to login to your account
+              Enter your email and password to sign up
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -131,21 +136,39 @@ const Login = () => {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="••••••••" 
+                          type="password" 
+                          {...field}
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <Button 
                   type="submit" 
                   className="w-full bg-pg-primary hover:bg-pg-dark"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Logging in..." : "Login"}
+                  {isLoading ? "Signing up..." : "Sign Up"}
                 </Button>
               </form>
             </Form>
           </CardContent>
           <CardFooter className="flex flex-col">
             <div className="text-center text-sm text-gray-500">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-pg-primary hover:underline">
-                Sign Up
+              Already have an account?{" "}
+              <Link to="/login" className="text-pg-primary hover:underline">
+                Log In
               </Link>
             </div>
           </CardFooter>
@@ -155,4 +178,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Signup;

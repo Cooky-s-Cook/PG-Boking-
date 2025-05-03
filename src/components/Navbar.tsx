@@ -1,14 +1,54 @@
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, User, Bed } from "lucide-react";
+import { Home, User, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const { toast } = useToast();
+  const navigate = useNavigate();
   
   const toggleMenu = () => {
     setIsOpen(!isOpen);
+  };
+
+  useEffect(() => {
+    // Get current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_, session) => {
+        setUser(session?.user || null);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Logout Successful",
+        description: "You have been logged out successfully.",
+      });
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Logout Failed",
+        description: "An error occurred while logging out.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -60,11 +100,30 @@ const Navbar = () => {
             <Link to="/rooms" className="px-3 py-2 text-slate-700 hover:text-pg-primary">Rooms</Link>
             <Link to="/facilities" className="px-3 py-2 text-slate-700 hover:text-pg-primary">PG Facilities</Link>
             <Link to="/booking" className="px-3 py-2 text-slate-700 hover:text-pg-primary">Book Now</Link>
-            <Link to="/login">
-              <Button variant="default" size="sm" className="bg-pg-primary hover:bg-pg-dark">
-                <User className="mr-2 h-4 w-4" /> Login
+            
+            {user ? (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="bg-pg-primary hover:bg-pg-dark"
+                onClick={handleLogout}
+              >
+                <LogOut className="mr-2 h-4 w-4" /> Logout
               </Button>
-            </Link>
+            ) : (
+              <div className="flex space-x-2">
+                <Link to="/login">
+                  <Button variant="default" size="sm" className="bg-pg-primary hover:bg-pg-dark">
+                    <User className="mr-2 h-4 w-4" /> Login
+                  </Button>
+                </Link>
+                <Link to="/signup">
+                  <Button variant="outline" size="sm">
+                    Sign Up
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
         
@@ -83,9 +142,24 @@ const Navbar = () => {
             <Link to="/booking" className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:bg-pg-light hover:text-pg-primary">
               Book Now
             </Link>
-            <Link to="/login" className="block px-3 py-2 rounded-md text-base font-medium text-white bg-pg-primary hover:bg-pg-dark">
-              Login
-            </Link>
+            
+            {user ? (
+              <button 
+                onClick={handleLogout}
+                className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-white bg-pg-primary hover:bg-pg-dark"
+              >
+                Logout
+              </button>
+            ) : (
+              <>
+                <Link to="/login" className="block px-3 py-2 rounded-md text-base font-medium text-white bg-pg-primary hover:bg-pg-dark">
+                  Login
+                </Link>
+                <Link to="/signup" className="block px-3 py-2 rounded-md text-base font-medium border border-pg-primary text-pg-primary bg-white hover:bg-pg-light">
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
         )}
       </div>
