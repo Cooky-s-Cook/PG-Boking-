@@ -1,17 +1,12 @@
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { 
   Form, 
   FormControl, 
-  FormDescription, 
   FormField, 
   FormItem, 
   FormLabel, 
@@ -19,335 +14,268 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { BookingFormData, Room } from "@/types";
+import { useToast } from "@/components/ui/use-toast";
+import { BookingFormData } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
-const bookingSchema = z.object({
-  fullName: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  age: z.coerce.number().min(18, { message: "Must be at least 18 years old" }).max(100),
-  occupation: z.string().min(2, { message: "Please enter your occupation" }),
-  native: z.string().min(2, { message: "Please enter your native place" }),
-  phoneNumber: z.string().min(10, { message: "Please enter a valid phone number" }),
-  email: z.string().email({ message: "Please enter a valid email address" }),
-  numberOfSharing: z.enum(["1", "2", "3", "4"], { 
-    required_error: "Please select number of sharing" 
+const bookingFormSchema = z.object({
+  fullName: z.string().min(2, { message: "Full name is required" }),
+  age: z.coerce.number().min(18, { message: "You must be at least 18 years old" }),
+  occupation: z.string().min(1, { message: "Occupation is required" }),
+  native: z.string().min(1, { message: "Native place is required" }),
+  phoneNumber: z.string().min(10, { message: "Valid phone number is required" }),
+  email: z.string().email({ message: "Valid email is required" }),
+  numberOfSharing: z.enum(["1", "2", "3", "4"], {
+    required_error: "Please select number of sharing",
   }),
-  advancePaid: z.coerce.number().min(1000, { message: "Minimum advance is ₹1000" })
+  advancePaid: z.coerce.number().min(1000, { message: "Minimum advance of ₹1000 is required" }),
 });
 
-const roomsData: Room[] = [
-  {
-    id: "1",
-    roomNumber: "101",
-    type: "Single",
-    pricePerMonth: 6000,
-    availability: "Available",
-    image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158"
-  },
-  {
-    id: "2",
-    roomNumber: "102",
-    type: "Double",
-    pricePerMonth: 4500,
-    availability: "Available",
-    image: "https://images.unsplash.com/photo-1721322800607-8c38375eef04"
-  },
-  {
-    id: "4",
-    roomNumber: "201",
-    type: "Four-sharing",
-    pricePerMonth: 3500,
-    availability: "Available",
-    image: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7"
-  },
-  {
-    id: "5",
-    roomNumber: "202",
-    type: "Single",
-    pricePerMonth: 6500,
-    availability: "Available",
-    image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158"
-  }
-];
-
 const BookingForm = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const roomId = searchParams.get('roomId');
+  const roomId = searchParams.get("roomId");
+  const { user } = useAuth();
   
-  const form = useForm<BookingFormData>({
-    resolver: zodResolver(bookingSchema),
+  const form = useForm<z.infer<typeof bookingFormSchema>>({
+    resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       fullName: "",
       age: undefined,
       occupation: "",
       native: "",
       phoneNumber: "",
-      email: "",
+      email: user?.email || "",
       numberOfSharing: "1",
-      advancePaid: 1000
+      advancePaid: 1000,
     },
   });
 
-  useEffect(() => {
-    if (roomId) {
-      // Simulate API call to get room details
-      // In a real app, this would be an actual API call
-      const room = roomsData.find(r => r.id === roomId);
-      if (room) {
-        setSelectedRoom(room);
-        
-        // Auto-select the number of sharing based on room type
-        const sharingMap: Record<string, "1" | "2" | "3" | "4"> = {
-          "Single": "1",
-          "Double": "2",
-          "Triple": "3",
-          "Four-sharing": "4"
-        };
-        
-        form.setValue("numberOfSharing", sharingMap[room.type]);
-      }
+  const onSubmit = async (data: z.infer<typeof bookingFormSchema>) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to complete your booking.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
     }
-  }, [roomId, form]);
 
-  const onSubmit = async (data: BookingFormData) => {
-    setIsLoading(true);
+    setIsSubmitting(true);
     
     try {
-      // Add room ID if one was selected
-      const bookingData = roomId ? { ...data, roomId } : data;
-      
-      // This is where you would typically make the API call
-      // const response = await fetch('/api/bookings', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(bookingData),
-      // });
-      
-      console.log('Booking submitted with data:', bookingData);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({
-        title: "Booking Submitted",
-        description: "Your booking request has been submitted successfully!",
+      // Save booking to Supabase
+      const { error } = await supabase.from("bookings").insert({
+        user_id: user.id,
+        room_id: roomId,
+        full_name: data.fullName,
+        age: data.age,
+        occupation: data.occupation,
+        native: data.native,
+        phone_number: data.phoneNumber,
+        email: data.email,
+        number_of_sharing: data.numberOfSharing,
+        advance_paid: data.advancePaid
       });
       
-      // Reset form after successful submission
-      form.reset();
+      if (error) {
+        throw error;
+      }
       
-    } catch (error) {
+      // If room ID is provided, update room availability
+      if (roomId) {
+        const { error: roomError } = await supabase
+          .from("rooms")
+          .update({ availability: "Booked" })
+          .eq("id", roomId);
+          
+        if (roomError) {
+          console.error("Failed to update room status:", roomError);
+        }
+      }
+      
       toast({
-        title: "Submission Failed",
-        description: "There was a problem submitting your booking. Please try again.",
+        title: "Booking Successful!",
+        description: "Your room has been booked successfully.",
+      });
+      
+      // Redirect to rooms page
+      navigate("/rooms");
+    } catch (error: any) {
+      toast({
+        title: "Booking Failed",
+        description: error.message || "Failed to complete booking. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="container-custom py-10">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-gray-800">Book Your Stay</h1>
-        <p className="mt-2 text-muted-foreground">
-          Fill in your details to book your accommodation
-        </p>
+    <div className="container-custom max-w-2xl py-10">
+      <div className="mb-6 text-center">
+        <h1 className="mb-2 text-2xl font-bold">Room Booking Form</h1>
+        <p className="text-muted-foreground">Please fill in your details to book your stay</p>
       </div>
       
-      <div className="mx-auto max-w-3xl">
-        <Card>
-          {selectedRoom && (
-            <div className="bg-pg-light p-4 rounded-t-lg">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-medium">Selected Room: {selectedRoom.roomNumber}</h3>
-                  <p className="text-muted-foreground">{selectedRoom.type} | ₹{selectedRoom.pricePerMonth}/month</p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setSelectedRoom(null);
-                    window.history.pushState({}, "", "/booking");
-                  }}
-                >
-                  Change Room
-                </Button>
-              </div>
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="fullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter your full name" {...field} disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="age"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Age</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Your age" {...field} disabled={isSubmitting} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="occupation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Occupation</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Your occupation" {...field} disabled={isSubmitting} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-          )}
-          
-          <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
-            <CardDescription>
-              Please provide your details for booking
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John Doe" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="age"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Age</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="occupation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Occupation</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Student/Professional" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="native"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Native Place</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Your hometown" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="phoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="9876543210" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email ID</FormLabel>
-                        <FormControl>
-                          <Input placeholder="you@example.com" type="email" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="numberOfSharing"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Number of Sharing Rooms</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          defaultValue={field.value}
-                          disabled={isLoading || !!selectedRoom}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select number of sharing" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="1">Single</SelectItem>
-                            <SelectItem value="2">Double Sharing</SelectItem>
-                            <SelectItem value="3">Triple Sharing</SelectItem>
-                            <SelectItem value="4">Four Sharing</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="advancePaid"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Advance Payment (₹)</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormDescription>
-                          Minimum advance is ₹1000
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <Button 
-                  type="submit" 
-                  className="w-full bg-pg-primary hover:bg-pg-dark"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Submitting..." : "Submit Booking"}
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+            
+            <FormField
+              control={form.control}
+              name="native"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Native Place</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Your hometown" {...field} disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Your phone number" {...field} disabled={isSubmitting} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="Your email" {...field} disabled={isSubmitting} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="numberOfSharing"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Sharing</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                      disabled={isSubmitting}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select sharing type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="1">Single (1 Person)</SelectItem>
+                        <SelectItem value="2">Double (2 Person)</SelectItem>
+                        <SelectItem value="3">Triple (3 Person)</SelectItem>
+                        <SelectItem value="4">Four Sharing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="advancePaid"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Advance Payment (₹)</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Amount paid as advance" {...field} disabled={isSubmitting} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <div className="pt-4">
+              <Button 
+                type="submit" 
+                className="w-full bg-pg-primary hover:bg-pg-dark"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Processing..." : "Book Room"}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </div>
     </div>
   );

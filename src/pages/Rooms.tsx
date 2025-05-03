@@ -5,102 +5,49 @@ import { Room } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const roomsData: Room[] = [
-  {
-    id: "1",
-    roomNumber: "101",
-    type: "Single",
-    pricePerMonth: 6000,
-    availability: "Available",
-    image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
-    features: ["Attached Bathroom", "Study Table", "Single Bed"],
-    description: "Cozy single room with an attached bathroom and basic amenities."
-  },
-  {
-    id: "2",
-    roomNumber: "102",
-    type: "Double",
-    pricePerMonth: 4500,
-    availability: "Available",
-    image: "https://images.unsplash.com/photo-1721322800607-8c38375eef04",
-    features: ["Shared Bathroom", "Study Tables", "Two Single Beds"],
-    description: "Spacious double room with two single beds and study tables."
-  },
-  {
-    id: "3",
-    roomNumber: "103",
-    type: "Triple",
-    pricePerMonth: 4000,
-    availability: "Booked",
-    image: "https://images.unsplash.com/photo-1472396961693-142e6e269027",
-    features: ["Shared Bathroom", "Study Tables", "Three Single Beds"],
-    description: "Comfortable triple sharing room with ample space for all occupants."
-  },
-  {
-    id: "4",
-    roomNumber: "201",
-    type: "Four-sharing",
-    pricePerMonth: 3500,
-    availability: "Available",
-    image: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7",
-    features: ["Shared Bathroom", "Study Tables", "Four Single Beds"],
-    description: "Economic four sharing room with all essential amenities provided."
-  },
-  {
-    id: "5",
-    roomNumber: "202",
-    type: "Single",
-    pricePerMonth: 6500,
-    availability: "Available",
-    image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
-    features: ["Attached Bathroom", "Study Table", "AC", "Single Bed"],
-    description: "Premium single room with AC and attached bathroom for comfort."
-  },
-  {
-    id: "6",
-    roomNumber: "203",
-    type: "Double",
-    pricePerMonth: 5000,
-    availability: "Booked",
-    image: "https://images.unsplash.com/photo-1721322800607-8c38375eef04",
-    features: ["Shared Bathroom", "Study Tables", "Two Single Beds"],
-    description: "Standard double room with all necessary furnishings provided."
-  }
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 const Rooms = () => {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Simulate fetching data from API
-    const fetchRooms = async () => {
-      try {
-        // In a real app, you would fetch from an API:
-        // const response = await fetch('/api/rooms');
-        // const data = await response.json();
-        // setRooms(data);
-        
-        // For now, use our mock data with a delay to simulate API call
-        setTimeout(() => {
-          setRooms(roomsData);
-          setLoading(false);
-        }, 1000);
-      } catch (error) {
-        setLoading(false);
-        toast({
-          title: "Error",
-          description: "Failed to load rooms. Please try again.",
-          variant: "destructive",
-        });
-      }
-    };
+  const fetchRooms = async (): Promise<Room[]> => {
+    const { data, error } = await supabase
+      .from("rooms")
+      .select("*");
+    
+    if (error) {
+      throw error;
+    }
+    
+    // Transform the data to match our Room type
+    return data.map(room => ({
+      id: room.id,
+      roomNumber: room.room_number,
+      type: room.type as Room['type'],
+      pricePerMonth: room.price_per_month,
+      availability: room.availability as Room['availability'],
+      image: room.image,
+      features: room.features || [],
+      description: room.description || ""
+    }));
+  };
 
-    fetchRooms();
-  }, [toast]);
+  const { data: rooms = [], isLoading, error } = useQuery({
+    queryKey: ['rooms'],
+    queryFn: fetchRooms,
+  });
+
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load rooms. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
   const filteredRooms = rooms.filter(room => {
     if (activeFilter === "all") return true;
@@ -146,7 +93,7 @@ const Rooms = () => {
         </div>
       </Tabs>
 
-      {loading ? (
+      {isLoading ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {Array(6).fill(0).map((_, index) => (
             <RoomSkeleton key={index} />

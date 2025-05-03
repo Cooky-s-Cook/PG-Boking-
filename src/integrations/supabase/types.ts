@@ -9,48 +9,153 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      rooms: {
+      bookings: {
         Row: {
+          advance_paid: number
+          age: number
+          created_at: string
+          email: string
+          full_name: string
           id: string
-          image_url: string | null
-          price: number | null
-          room_number: string
-          status: string | null
-          type: string | null
+          native: string
+          number_of_sharing: string
+          occupation: string
+          phone_number: string
+          room_id: string | null
+          updated_at: string
+          user_id: string
         }
         Insert: {
+          advance_paid: number
+          age: number
+          created_at?: string
+          email: string
+          full_name: string
           id?: string
-          image_url?: string | null
-          price?: number | null
-          room_number: string
-          status?: string | null
-          type?: string | null
+          native: string
+          number_of_sharing: string
+          occupation: string
+          phone_number: string
+          room_id?: string | null
+          updated_at?: string
+          user_id: string
         }
         Update: {
+          advance_paid?: number
+          age?: number
+          created_at?: string
+          email?: string
+          full_name?: string
           id?: string
-          image_url?: string | null
-          price?: number | null
+          native?: string
+          number_of_sharing?: string
+          occupation?: string
+          phone_number?: string
+          room_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      facilities: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          image: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          image: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          image?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rooms: {
+        Row: {
+          availability: string
+          created_at: string
+          description: string | null
+          features: string[] | null
+          id: string
+          image: string
+          price_per_month: number
+          room_number: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          availability: string
+          created_at?: string
+          description?: string | null
+          features?: string[] | null
+          id?: string
+          image: string
+          price_per_month: number
+          room_number: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          availability?: string
+          created_at?: string
+          description?: string | null
+          features?: string[] | null
+          id?: string
+          image?: string
+          price_per_month?: number
           room_number?: string
-          status?: string | null
-          type?: string | null
+          type?: string
+          updated_at?: string
         }
         Relationships: []
       }
       users: {
         Row: {
+          created_at: string
           email: string
           id: string
-          password: string
+          updated_at: string
         }
         Insert: {
-          email?: string
+          created_at?: string
+          email: string
           id?: string
-          password?: string
+          updated_at?: string
         }
         Update: {
+          created_at?: string
           email?: string
           id?: string
-          password?: string
+          updated_at?: string
         }
         Relationships: []
       }
