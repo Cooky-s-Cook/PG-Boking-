@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# PG Room booking System 
 
 ## Project info
 
@@ -6,9 +6,7 @@
 
 ## How can I edit this code?
 
-There are several ways of editing your application.
 
-**Use Lovable**
 
 Simply visit the [Lovable Project](https://lovable.dev/projects/9ba2acbd-d80a-4e62-a309-95195205eac9) and start prompting.
 
